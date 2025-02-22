@@ -1,16 +1,24 @@
-FROM registry.access.redhat.com/ubi9/nodejs-20:latest AS build-env
+FROM node:16-alpine as builder
+# Set the working directory to /app inside the container
 WORKDIR /app
-RUN npm init -f && npm install
-COPY server.js .
+# Copy app files
+COPY . .
+# Install dependencies (npm ci makes sure the exact versions in the lockfile gets installed)
+RUN npm ci 
+# Build the app
+RUN npm run build
 
-# Use a small distroless image for as runtime image
-FROM gcr.io/distroless/nodejs20-debian12
-COPY --from=build-env /app /app
-WORKDIR /app
-EXPOSE 8080
+# Bundle static assets with nginx
+FROM nginx:1.21.0-alpine as production
+# Copy built assets from `builder` image
+COPY --from=builder /app/dist/mflix /usr/share/nginx/html
+# Add your nginx.conf
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Expose port
+EXPOSE 80
 # Install OneAgent
-RUN echo $DT_ENDPOINT
-RUN wget -O /tmp/installer.sh '$DT_ENDPOINT/api/v1/deployment/installer/agent/unix/paas-sh/latest?Api-Token=$DT_API_TOKEN&flavor=musl&include=nodejs' && sh /tmp/installer.sh /hom
+RUN wget -O /tmp/installer.sh 'https://gqb44926.live.dynatrace.com/api/v1/deployment/installer/agent/unix/paas-sh/latest?Api-Token=dt0c01.V6L57NAAELKM4HGLQF3Q3CIW.7T5WJJB6BYSFXFGB5DBQXGSX7YU5VXL4SRAVZQF3BWJAK535ESM75DZNAAZ3XAYT&flavor=musl&include=nginx' && sh /tmp/installer.sh /home
 
 ENV LD_PRELOAD /home/dynatrace/oneagent/agent/lib64/liboneagentproc.so
-CMD ["server.js"]
+# Start nginx
+CMD ["nginx", "-g", "daemon off;"]
