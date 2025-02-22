@@ -12,8 +12,7 @@ RUN npm run build
 FROM nginx:1.21.0-alpine as production
 # Copy built assets from `builder` image
 COPY --from=builder /app/dist/mflix /usr/share/nginx/html
-# Add your nginx.conf
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+
 # Expose port
 EXPOSE 80
 # Install OneAgent
